@@ -18,45 +18,51 @@ class NotifyBot(euphoria.ping_room.PingRoom, euphoria.standard_room.StandardRoom
 
         self.start_time = time.time()
 
-    def parse_notify(self, info, parts):
+    def parse_notify(self, info, cmd):
         """
-        parse_notify(info, parts) -> None
+        parse_notify(info, cmd) -> None
 
         Take the text and try to send it to the specified user.
         """
 
         #Divide the people and the message into two parts.
         users = []
-        for p in parts:
+        for p in cmd.args:
             if p[0] == '@' or p[0] == '*':
                 users.append(p)
             else:
                 break
 
-        if len(users) != 0 and len(users) != len(parts):
+        if len(users) != 0 and len(users) != len(cmd.args):
             sender = info["sender"]["name"]
-            notification = " ".join(parts[len(users):])
             timestamp = info["time"]
+
+            if cmd.args[len(users)] == "--":
+                if len(cmd.args) == len(users) + 1:
+                    return
+                notification = cmd.text[cmd.args[len(users) + 1].offset:].strip()
+            else:
+                notification = cmd.text[cmd.args[len(users)].offset:].strip()
 
             for user in users:
                 self.send_chat(self.messages.add_notification(user, sender, notification, timestamp), info["id"])
 
-    def parse_group(self, info, parts, add=True):
+    def parse_group(self, info, cmd, add=True):
         """
-        parse_group(info, parts) -> None
+        parse_group(info, cmd, add=True) -> None
 
-        Take the text and try to add someone to a group.
+        Take the text and try to add someone to a group, or remove someone if add is false.
         """
 
-        if len(parts) >= 2 and parts[0][0] == "*":
+        if len(cmd.args) >= 2 and cmd.args[0][0] == "*":
             # Check for non-users.
-            for p in parts[1:]:
+            for p in cmd.args[1:]:
                 if p[0] != "@":
                     return
 
-            group = parts[0][1:]
+            group = cmd.args[0][1:]
 
-            for entry in parts[1:]:
+            for entry in cmd.args[1:]:
                 user = entry[1:]
 
                 if add:
@@ -71,7 +77,7 @@ class NotifyBot(euphoria.ping_room.PingRoom, euphoria.standard_room.StandardRoom
             ms = self.messages.get_notifications(user)
             for m in ms:
                 self.send_chat(m, info["id"])
-                
+
         #Now, begin proccessing the message
         #Split the message into parts and work out the command
         cmd = euphoria.command.Command(info["content"])
@@ -79,15 +85,15 @@ class NotifyBot(euphoria.ping_room.PingRoom, euphoria.standard_room.StandardRoom
 
         #!notify someone
         if cmd.command == "notify":
-            self.parse_notify(info, cmd.args)
+            self.parse_notify(info, cmd)
 
         #Create a group
         elif cmd.command == "group":
-            self.parse_group(info, cmd.args, add=True)
+            self.parse_group(info, cmds, add=True)
 
         #Remove someone from a group
         elif cmd.command == "ungroup":
-            self.parse_group(info, cmd.args, add=False)
+            self.parse_group(info, cmd, add=False)
 
         #Get a list of all the groups
         elif cmd.command == "grouplist":
