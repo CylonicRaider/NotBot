@@ -69,7 +69,9 @@ class NotifyBot(euphoria.ping_room.PingRoom, euphoria.standard_room.StandardRoom
         user = ut.filter_nick(info["sender"]["name"])
         if self.messages.has_notifications(user):
             ms = self.messages.get_notifications(user)
-            for m in ms:
+            for n, m in enumerate(ms):
+                # HACK: Avoid getting kicked for flooding
+                if n >= 5: time.sleep(1)
                 self.send_chat(m, info["id"])
                 
         #Now, begin proccessing the message
